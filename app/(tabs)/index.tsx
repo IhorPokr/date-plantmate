@@ -1,50 +1,48 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-import { signUp, login, logout } from '../utils/auth'; // Adjust path if needed
-import { supabase } from '../constants/supabaseClient';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { router } from 'expo-router';
+import { supabase } from '../../constants/supabaseClient';
 
+export default function Index() {
+  const [loading, setLoading] = useState(true);
 
-async function checkSession() {
-  const { data: sessionData, error } = await supabase.auth.getSession();
+  useEffect(() => {
+    checkSession();
+  }, []);
 
-  if (error) {
-    console.error('Error fetching session:', error.message);
-  } else if (sessionData.session) {
-    console.log('Current Session User:', sessionData.session.user); // Logs the current user
-  } else {
-    console.log('No active session'); // Logs if the user is logged out
+  async function checkSession() {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Session error:', error);
+        router.replace('/(auth)/login');
+        return;
+      }
+      
+      if (!session) {
+        router.replace('/(auth)/login');
+        return;
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error checking session:', error);
+      router.replace('/(auth)/login');
+    }
   }
-}
 
-export default function App() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+        <ActivityIndicator size="large" color="#0284c7" />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <Text>Auth Test</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <Button title="Sign Up" onPress={() => signUp(email, password)} />
-      <Button title="Login" onPress={() => login(email, password)} />
-      <Button title="Logout" onPress={logout} />
-      <Button title="Check Session" onPress={checkSession} />
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+      <Text>Dashboard</Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  input: { height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10, paddingHorizontal: 10, width: '100%' },
-});
