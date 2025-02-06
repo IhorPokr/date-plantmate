@@ -1,9 +1,9 @@
 import { View, Text } from 'react-native';
 
-export default function Explore() {
+export default function SavedIdeas() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Explore Screen</Text>
+      <Text>Saved Ideas Screen</Text>
     </View>
   );
-}
+} 

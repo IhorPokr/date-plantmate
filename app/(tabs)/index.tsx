@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { supabase, getCompleteSession } from '../../constants/supabaseClient';
 
@@ -35,17 +35,57 @@ export default function Index() {
     }
   }
 
+  const handleGetDateIdea = () => {
+    // TODO: Implement date idea generation
+    console.log('Getting a date idea...');
+  };
+
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+      <View style={styles.container}>
         <ActivityIndicator size="large" color="#0284c7" />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
-      <Text>Dashboard</Text>
+    <View style={styles.container}>
+      <TouchableOpacity 
+        style={styles.button}
+        onPress={handleGetDateIdea}
+      >
+        <Text style={styles.buttonText}>Get a Date Idea</Text>
+      </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 20,
+  },
+  button: {
+    backgroundColor: '#0284c7',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+});
