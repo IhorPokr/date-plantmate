@@ -6,10 +6,12 @@ import {
   TouchableOpacity, 
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase, getCompleteSession } from '../../constants/supabaseClient';
 import Slider from '@react-native-community/slider';
+import { generateDateIdea } from '../utils/gemini';
 
 type Mood = 'Romantic' | 'Adventurous' | 'Relaxing' | 'Fun';
 type Location = 'Indoor' | 'Outdoor' | 'No Preference';
@@ -25,6 +27,10 @@ export default function Index() {
   const [budget, setBudget] = useState(100);
   const [location, setLocation] = useState<Location | null>(null);
   const [foodPreference, setFoodPreference] = useState<FoodPreference | null>(null);
+
+  // Add new state for AI response
+  const [dateIdea, setDateIdea] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     checkSession();
@@ -148,18 +154,7 @@ export default function Index() {
                     styles.optionButton,
                     foodPreference === option && styles.selectedOption
                   ]}
-                  onPress={() => {
-                    setFoodPreference(option);
-                    // Handle quiz completion
-                    console.log({
-                      mood,
-                      budget,
-                      location,
-                      foodPreference: option
-                    });
-                    setShowQuiz(false);
-                    setCurrentQuestion(0);
-                  }}
+                  onPress={() => handleQuizComplete(option)}
                 >
                   <Text style={[
                     styles.optionText,
@@ -174,6 +169,48 @@ export default function Index() {
         return null;
     }
   };
+
+  async function handleQuizComplete(selectedFoodPreference: FoodPreference) {
+    try {
+      setGenerating(true);
+      setFoodPreference(selectedFoodPreference);
+      setShowQuiz(false);
+      
+      const idea = await generateDateIdea(
+        mood!,
+        budget,
+        location!,
+        selectedFoodPreference
+      );
+
+      // Save to Supabase
+      const { data, error } = await supabase
+        .from('ai_generated_ideas')
+        .insert([
+          {
+            user_id: (await supabase.auth.getSession()).data.session?.user.id,
+            idea: idea,
+            preferences: {
+              mood,
+              budget,
+              location,
+              foodPreference: selectedFoodPreference
+            }
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setDateIdea(idea);
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'Failed to generate date idea. Please try again.');
+      setShowQuiz(true);
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -191,6 +228,54 @@ export default function Index() {
     );
   }
 
+  if (generating) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#0284c7" />
+        <Text style={styles.loadingText}>Generating your perfect date idea...</Text>
+      </View>
+    );
+  }
+
+  if (dateIdea) {
+    return (
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
+        <View style={styles.resultContainer}>
+          <Text style={styles.resultTitle}>Your Perfect Date Idea</Text>
+          <View style={styles.resultContent}>
+            {formatDateIdea(dateIdea)}
+          </View>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={[styles.button, styles.saveButton]}
+              onPress={() => {
+                Alert.alert('Success', 'Date idea saved!');
+              }}
+            >
+              <Text style={styles.buttonText}>Save This Idea</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.button, styles.newButton]}
+              onPress={() => {
+                setDateIdea(null);
+                setMood(null);
+                setLocation(null);
+                setFoodPreference(null);
+                setBudget(100);
+                setShowQuiz(true);
+              }}
+            >
+              <Text style={styles.buttonText}>Get Another Idea</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <TouchableOpacity 
@@ -201,6 +286,35 @@ export default function Index() {
       </TouchableOpacity>
     </View>
   );
+}
+
+function formatDateIdea(idea: string) {
+  // Split the response into sections
+  const sections = idea.split('\n').filter(line => line.trim());
+  
+  return sections.map((section, index) => {
+    if (section.startsWith('-')) {
+      // Format list items
+      return (
+        <Text key={index} style={styles.resultListItem}>
+          {section.replace('-', '•')}
+        </Text>
+      );
+    } else if (section.includes(':')) {
+      // Format headings and their content
+      const [heading, content] = section.split(':');
+      return (
+        <View key={index} style={styles.resultSection}>
+          <Text style={styles.resultHeading}>{heading.trim()}</Text>
+          <Text style={styles.resultContentText}>{content.trim()}</Text>
+        </View>
+      );
+    }
+    // Regular text
+    return (
+      <Text key={index} style={styles.resultText}>{section}</Text>
+    );
+  });
 }
 
 const styles = StyleSheet.create({
@@ -286,5 +400,79 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  scrollContentContainer: {
+    flexGrow: 1,
+    padding: 20,
+  },
+  resultContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    marginBottom: 20,
+  },
+  resultTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  resultSection: {
+    marginBottom: 16,
+  },
+  resultHeading: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0284c7',
+    marginBottom: 8,
+  },
+  resultContent: {  // For the View
+    marginBottom: 16,
+  },
+  resultContentText: {  // For the Text
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#4b5563',
+  },
+  resultListItem: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#4b5563',
+    marginBottom: 8,
+    paddingLeft: 12,
+  },
+  resultText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#4b5563',
+    marginBottom: 24,
+  },
+  buttonContainer: {
+    marginTop: 24,
+    gap: 12,
+  },
+  saveButton: {
+    backgroundColor: '#059669',
+  },
+  newButton: {
+    backgroundColor: '#0284c7',
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#4b5563',
   },
 });
