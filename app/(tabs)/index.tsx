@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import { supabase, getCompleteSession } from '../../constants/supabaseClient';
 import Slider from '@react-native-community/slider';
 import { generateDateIdea } from '../utils/gemini';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Mood = 'Romantic' | 'Adventurous' | 'Relaxing' | 'Fun';
 type Location = 'Indoor' | 'Outdoor' | 'No Preference';
@@ -214,77 +215,106 @@ export default function Index() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <ActivityIndicator size="large" color="#0284c7" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (showQuiz) {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
-        {renderQuestion()}
-      </ScrollView>
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContentContainer}>
+          {renderQuestion()}
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   if (generating) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <ActivityIndicator size="large" color="#0284c7" />
         <Text style={styles.loadingText}>Generating your perfect date idea...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (dateIdea) {
     return (
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContentContainer}
-      >
-        <View style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>Your Perfect Date Idea</Text>
-          <View style={styles.resultContent}>
-            {formatDateIdea(dateIdea)}
+      <SafeAreaView style={styles.container}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContentContainer}
+        >
+          <View style={styles.resultContainer}>
+            <Text style={styles.resultTitle}>Your Perfect Date Idea</Text>
+            <View style={styles.resultContent}>
+              {formatDateIdea(dateIdea)}
+            </View>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity 
+                style={[styles.button, styles.saveButton]}
+                onPress={async () => {
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const { error } = await supabase
+                      .from('ai_generated_ideas')
+                      .update({ saved: true })
+                      .eq('user_id', session?.user.id)
+                      .eq('idea', dateIdea);
+
+                    if (error) throw error;
+                    Alert.alert('Success', 'Date idea saved to your collection!');
+                  } catch (error) {
+                    console.error('Error saving idea:', error);
+                    Alert.alert('Error', 'Failed to save the idea. Please try again.');
+                  }
+                }}
+              >
+                <Text style={styles.buttonText}>💾 Save This Idea</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.button, styles.newButton]}
+                onPress={() => {
+                  router.replace('/(tabs)');  // This will reset to home
+                }}
+              >
+                <Text style={styles.buttonText}>🏠 Back to Home</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.button, styles.generateButton]}
+                onPress={() => {
+                  // Reset all states
+                  setDateIdea(null);
+                  setMood(null);
+                  setLocation(null);
+                  setFoodPreference(null);
+                  setBudget(100);
+                  setCurrentQuestion(0); // Reset to first question
+                  setShowQuiz(true);
+                }}
+              >
+                <Text style={styles.buttonText}>🎲 Generate New Idea</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.button, styles.saveButton]}
-              onPress={() => {
-                Alert.alert('Success', 'Date idea saved!');
-              }}
-            >
-              <Text style={styles.buttonText}>Save This Idea</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.button, styles.newButton]}
-              onPress={() => {
-                setDateIdea(null);
-                setMood(null);
-                setLocation(null);
-                setFoodPreference(null);
-                setBudget(100);
-                setShowQuiz(true);
-              }}
-            >
-              <Text style={styles.buttonText}>Get Another Idea</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <TouchableOpacity 
         style={styles.button}
         onPress={handleGetDateIdea}
       >
         <Text style={styles.buttonText}>Get a Date Idea</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -469,6 +499,9 @@ const styles = StyleSheet.create({
   },
   newButton: {
     backgroundColor: '#0284c7',
+  },
+  generateButton: {
+    backgroundColor: '#0a84ff',
   },
   loadingText: {
     marginTop: 20,
