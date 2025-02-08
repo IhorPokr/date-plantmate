@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -7,18 +7,28 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Share,
+  useColorScheme,
 } from 'react-native';
 import { router } from 'expo-router';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import LottieView from 'lottie-react-native';
 import { supabase, getCompleteSession } from '../../constants/supabaseClient';
 import Slider from '@react-native-community/slider';
 import { generateDateIdea } from '../utils/gemini';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { theme } from '../utils/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Mood = 'Romantic' | 'Adventurous' | 'Relaxing' | 'Fun';
 type Location = 'Indoor' | 'Outdoor' | 'No Preference';
 type FoodPreference = 'Yes' | 'No' | 'Surprise Me';
 
 export default function Index() {
+  const colorScheme = useColorScheme();
+  const colors = theme[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
+  
   const [loading, setLoading] = useState(true);
   const [showQuiz, setShowQuiz] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -66,152 +76,71 @@ export default function Index() {
     setShowQuiz(true);
   };
 
-  const renderQuestion = () => {
-    switch (currentQuestion) {
-      case 0:
-        return (
-          <View style={styles.questionContainer}>
-            <Text style={styles.questionText}>What's your mood today?</Text>
-            <View style={styles.optionsContainer}>
-              {(['Romantic', 'Adventurous', 'Relaxing', 'Fun'] as Mood[]).map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.optionButton,
-                    mood === option && styles.selectedOption
-                  ]}
-                  onPress={() => {
-                    setMood(option);
-                    setCurrentQuestion(1);
-                  }}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    mood === option && styles.selectedOptionText
-                  ]}>{option}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        );
-      case 1:
-        return (
-          <View style={styles.questionContainer}>
-            <Text style={styles.questionText}>What's your budget?</Text>
-            <Text style={styles.budgetText}>${budget}</Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={0}
-              maximumValue={500}
-              step={10}
-              value={budget}
-              onValueChange={setBudget}
-              minimumTrackTintColor="#0284c7"
-              maximumTrackTintColor="#d1d5db"
-            />
-            <TouchableOpacity
-              style={styles.nextButton}
-              onPress={() => setCurrentQuestion(2)}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      case 2:
-        return (
-          <View style={styles.questionContainer}>
-            <Text style={styles.questionText}>Do you prefer an indoor or outdoor activity?</Text>
-            <View style={styles.optionsContainer}>
-              {(['Indoor', 'Outdoor', 'No Preference'] as Location[]).map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.optionButton,
-                    location === option && styles.selectedOption
-                  ]}
-                  onPress={() => {
-                    setLocation(option);
-                    setCurrentQuestion(3);
-                  }}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    location === option && styles.selectedOptionText
-                  ]}>{option}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        );
-      case 3:
-        return (
-          <View style={styles.questionContainer}>
-            <Text style={styles.questionText}>Would you like a food-related activity?</Text>
-            <View style={styles.optionsContainer}>
-              {(['Yes', 'No', 'Surprise Me'] as FoodPreference[]).map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.optionButton,
-                    foodPreference === option && styles.selectedOption
-                  ]}
-                  onPress={() => handleQuizComplete(option)}
-                >
-                  <Text style={[
-                    styles.optionText,
-                    foodPreference === option && styles.selectedOptionText
-                  ]}>{option}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        );
-      default:
-        return null;
+  const handleShare = async (idea: string) => {
+    try {
+      await Share.share({
+        message: idea,
+        title: 'Check out this date idea!',
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
     }
   };
 
-  async function handleQuizComplete(selectedFoodPreference: FoodPreference) {
-    try {
-      setGenerating(true);
-      setFoodPreference(selectedFoodPreference);
-      setShowQuiz(false);
-      
-      const idea = await generateDateIdea(
-        mood!,
-        budget,
-        location!,
-        selectedFoodPreference
-      );
+  const handleQuizComplete = async (selectedFoodPreference: FoodPreference) => {
+    let retryCount = 0;
+    const maxRetries = 3;
 
-      // Save to Supabase
-      const { data, error } = await supabase
-        .from('ai_generated_ideas')
-        .insert([
-          {
-            user_id: (await supabase.auth.getSession()).data.session?.user.id,
-            idea: idea,
-            preferences: {
-              mood,
-              budget,
-              location,
-              foodPreference: selectedFoodPreference
+    while (retryCount < maxRetries) {
+      try {
+        setGenerating(true);
+        setFoodPreference(selectedFoodPreference);
+        setShowQuiz(false);
+        
+        const idea = await generateDateIdea(
+          mood!,
+          budget,
+          location!,
+          selectedFoodPreference
+        );
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const { data, error } = await supabase
+          .from('ai_generated_ideas')
+          .insert([
+            {
+              user_id: session?.user.id,
+              idea: idea,
+              preferences: {
+                mood,
+                budget,
+                location,
+                foodPreference: selectedFoodPreference
+              }
             }
-          }
-        ])
-        .select()
-        .single();
+          ])
+          .select()
+          .single();
 
-      if (error) throw error;
-      setDateIdea(idea);
-    } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Failed to generate date idea. Please try again.');
-      setShowQuiz(true);
-    } finally {
-      setGenerating(false);
+        if (error) throw error;
+        setDateIdea(idea);
+        break;
+      } catch (error) {
+        retryCount++;
+        if (retryCount === maxRetries) {
+          Alert.alert(
+            'Connection Error',
+            'Please check your internet connection and try again'
+          );
+          setShowQuiz(true);
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      } finally {
+        setGenerating(false);
+      }
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -223,9 +152,77 @@ export default function Index() {
 
   if (showQuiz) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContentContainer}>
-          {renderQuestion()}
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContentContainer, { justifyContent: 'center', flex: 1 }]}
+        >
+          <View style={styles.quizCard}>
+            <Text style={styles.questionText}>
+              {currentQuestion === 0 && "What's your mood today?"}
+              {currentQuestion === 1 && "What's your budget?"}
+              {currentQuestion === 2 && "Indoor or outdoor activity?"}
+              {currentQuestion === 3 && "Include food in your date?"}
+            </Text>
+
+            {currentQuestion === 1 ? (
+              // Budget slider view
+              <View style={styles.budgetContainer}>
+                <Text style={styles.budgetAmount}>${budget}</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={0}
+                  maximumValue={500}
+                  step={10}
+                  value={budget}
+                  onValueChange={setBudget}
+                  minimumTrackTintColor="#0A84FF"
+                  maximumTrackTintColor="#3C3C3E"
+                />
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={() => setCurrentQuestion(2)}
+                >
+                  <Text style={styles.buttonText}>Next</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // Options view for other questions
+              <View style={styles.optionsContainer}>
+                {(currentQuestion === 0 ? ['Romantic', 'Adventurous', 'Relaxing', 'Fun'] :
+                  currentQuestion === 2 ? ['Indoor', 'Outdoor', 'No Preference'] :
+                  ['Yes', 'No', 'Surprise Me']).map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      (mood === option || location === option || foodPreference === option) && 
+                      styles.selectedOption
+                    ]}
+                    onPress={() => {
+                      if (currentQuestion === 0) {
+                        setMood(option as Mood);
+                        setCurrentQuestion(1);
+                      } else if (currentQuestion === 2) {
+                        setLocation(option as Location);
+                        setCurrentQuestion(3);
+                      } else {
+                        handleQuizComplete(option as FoodPreference);
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      (mood === option || location === option || foodPreference === option) && 
+                      styles.selectedOptionText
+                    ]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
         </ScrollView>
       </SafeAreaView>
     );
@@ -233,71 +230,94 @@ export default function Index() {
 
   if (generating) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color="#0284c7" />
-        <Text style={styles.loadingText}>Generating your perfect date idea...</Text>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0A84FF" />
+          <Text style={styles.loadingText}>Creating your perfect date...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (dateIdea) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
         <ScrollView 
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContentContainer}
         >
-          <View style={styles.resultContainer}>
-            <Text style={styles.resultTitle}>Your Perfect Date Idea</Text>
-            <View style={styles.resultContent}>
-              {formatDateIdea(dateIdea)}
+          <View style={styles.header}>
+            <Text style={styles.dateTitle}>
+              {getDateTitle(dateIdea)}
+            </Text>
+          </View>
+
+          <View style={styles.contentCard}>
+            <Text style={styles.description}>
+              {getDateDescription(dateIdea)}
+            </Text>
+
+            <View style={styles.detailsContainer}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>ESTIMATED COST</Text>
+                <Text style={styles.detailValue}>{getDateCost(dateIdea)}</Text>
+              </View>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>DURATION</Text>
+                <Text style={styles.detailValue}>{getDateDuration(dateIdea)}</Text>
+              </View>
             </View>
-            <View style={styles.buttonContainer}>
+
+            <View style={styles.actionButtons}>
               <TouchableOpacity 
-                style={[styles.button, styles.saveButton]}
+                style={styles.primaryButton}
                 onPress={async () => {
                   try {
                     const { data: { session } } = await supabase.auth.getSession();
+                    
                     const { error } = await supabase
                       .from('ai_generated_ideas')
-                      .update({ saved: true })
-                      .eq('user_id', session?.user.id)
-                      .eq('idea', dateIdea);
+                      .insert({
+                        user_id: session?.user.id,
+                        idea: dateIdea,
+                        saved: true,
+                        preferences: {
+                          mood,
+                          budget,
+                          location,
+                          foodPreference
+                        }
+                      });
 
-                    if (error) throw error;
-                    Alert.alert('Success', 'Date idea saved to your collection!');
+                    if (error) {
+                      console.error('Save error:', error);
+                      Alert.alert('Error', 'Failed to save');
+                      return;
+                    }
+                    Alert.alert('Success', 'Date idea saved!');
                   } catch (error) {
-                    console.error('Error saving idea:', error);
-                    Alert.alert('Error', 'Failed to save the idea. Please try again.');
+                    console.error('Save error:', error);
+                    Alert.alert('Error', 'Failed to save');
                   }
                 }}
               >
-                <Text style={styles.buttonText}>💾 Save This Idea</Text>
+                <Text style={styles.buttonText}>Save This Date</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity 
-                style={[styles.button, styles.newButton]}
+                style={styles.secondaryButton}
                 onPress={() => {
-                  router.replace('/(tabs)');  // This will reset to home
-                }}
-              >
-                <Text style={styles.buttonText}>🏠 Back to Home</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.button, styles.generateButton]}
-                onPress={() => {
-                  // Reset all states
                   setDateIdea(null);
                   setMood(null);
                   setLocation(null);
                   setFoodPreference(null);
                   setBudget(100);
-                  setCurrentQuestion(0); // Reset to first question
-                  setShowQuiz(true);
+                  setCurrentQuestion(0);
+                  setShowQuiz(false);
                 }}
               >
-                <Text style={styles.buttonText}>🎲 Generate New Idea</Text>
+                <Text style={styles.secondaryButtonText}>Back to Home</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -307,205 +327,222 @@ export default function Index() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TouchableOpacity 
-        style={styles.button}
-        onPress={handleGetDateIdea}
-      >
-        <Text style={styles.buttonText}>Get a Date Idea</Text>
-      </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <TouchableOpacity 
+          style={styles.mainButton}
+          onPress={handleGetDateIdea}
+        >
+          <Text style={styles.mainButtonText}>Create Perfect Date</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
-function formatDateIdea(idea: string) {
-  // Split the response into sections
-  const sections = idea.split('\n').filter(line => line.trim());
-  
-  return sections.map((section, index) => {
-    if (section.startsWith('-')) {
-      // Format list items
-      return (
-        <Text key={index} style={styles.resultListItem}>
-          {section.replace('-', '•')}
-        </Text>
-      );
-    } else if (section.includes(':')) {
-      // Format headings and their content
-      const [heading, content] = section.split(':');
-      return (
-        <View key={index} style={styles.resultSection}>
-          <Text style={styles.resultHeading}>{heading.trim()}</Text>
-          <Text style={styles.resultContentText}>{content.trim()}</Text>
-        </View>
-      );
-    }
-    // Regular text
-    return (
-      <Text key={index} style={styles.resultText}>{section}</Text>
-    );
-  });
+function getDateTitle(idea: string): string {
+  const titleMatch = idea.match(/Title:(.*?)(?=\n|$)/);
+  return titleMatch ? titleMatch[1].trim() : 'Perfect Date Idea';
+}
+
+function getDateDescription(idea: string): string {
+  const descMatch = idea.match(/Description:(.*?)(?=\n|$)/);
+  return descMatch ? descMatch[1].trim() : '';
+}
+
+function getDateCost(idea: string): string {
+  const costMatch = idea.match(/Estimated cost:(.*?)(?=\n|$)/);
+  return costMatch ? costMatch[1].trim() : '';
+}
+
+function getDateDuration(idea: string): string {
+  const durationMatch = idea.match(/Duration:(.*?)(?=\n|$)/);
+  return durationMatch ? durationMatch[1].trim() : '';
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 20,
+    padding: 16,
   },
-  button: {
-    backgroundColor: '#0284c7',
+  mainButton: {
+    backgroundColor: '#0A84FF',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 30,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    borderRadius: 16,
+    width: '80%',
+    maxWidth: 300,
+    alignItems: 'center',
+    shadowColor: '#0A84FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 5,
   },
-  buttonText: {
-    color: 'white',
+  mainButtonText: {
+    color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: '600',
   },
-  questionContainer: {
-    width: '100%',
-    alignItems: 'center',
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  dateTitle: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#FFF',
+    textAlign: 'left',
+    letterSpacing: 0.35,
+  },
+  contentCard: {
+    backgroundColor: '#1C1C1E',
+    borderRadius: 16,
+    margin: 16,
+    overflow: 'hidden',
+  },
+  description: {
+    fontSize: 17,
+    lineHeight: 24,
+    color: '#FFF',
     padding: 20,
+    textAlign: 'left',
+  },
+  detailsContainer: {
+    flexDirection: 'row',
+    padding: 20,
+    backgroundColor: '#2C2C2E',
+  },
+  detailItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  detailDivider: {
+    width: 1,
+    backgroundColor: '#3C3C3E',
+    marginHorizontal: 16,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: 17,
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  actionButtons: {
+    padding: 20,
+    gap: 12,
+  },
+  primaryButton: {
+    backgroundColor: '#0A84FF',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#0A84FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  secondaryButton: {
+    backgroundColor: '#2C2C2E',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  secondaryButtonText: {
+    color: '#0A84FF',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    padding: 16,
+  },
+  quizCard: {
+    backgroundColor: '#1C1C1E',
+    borderRadius: 16,
+    padding: 24,
+    margin: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   questionText: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 30,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFF',
     textAlign: 'center',
-    color: '#1f2937',
+    marginBottom: 32,
+    letterSpacing: 0.35,
   },
   optionsContainer: {
-    width: '100%',
     gap: 12,
   },
   optionButton: {
-    backgroundColor: '#f3f4f6',
-    padding: 16,
-    borderRadius: 12,
-    width: '100%',
+    backgroundColor: '#2C2C2E',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3C3C3E',
   },
   selectedOption: {
-    backgroundColor: '#0284c7',
+    backgroundColor: '#0A84FF',
+    borderColor: '#0A84FF',
   },
   optionText: {
-    fontSize: 16,
-    color: '#4b5563',
-    fontWeight: '500',
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '600',
   },
   selectedOptionText: {
-    color: 'white',
+    color: '#FFF',
+  },
+  budgetContainer: {
+    alignItems: 'center',
+    gap: 24,
+  },
+  budgetAmount: {
+    fontSize: 42,
+    fontWeight: '700',
+    color: '#0A84FF',
+    letterSpacing: 0.5,
   },
   slider: {
     width: '100%',
     height: 40,
   },
-  budgetText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#0284c7',
-    marginBottom: 20,
-  },
-  nextButton: {
-    backgroundColor: '#0284c7',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    marginTop: 20,
-  },
-  nextButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  scrollView: {
+  loadingContainer: {
     flex: 1,
-    backgroundColor: 'white',
-  },
-  scrollContentContainer: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  resultContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    marginBottom: 20,
-  },
-  resultTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  resultSection: {
-    marginBottom: 16,
-  },
-  resultHeading: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0284c7',
-    marginBottom: 8,
-  },
-  resultContent: {  // For the View
-    marginBottom: 16,
-  },
-  resultContentText: {  // For the Text
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#4b5563',
-  },
-  resultListItem: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#4b5563',
-    marginBottom: 8,
-    paddingLeft: 12,
-  },
-  resultText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#4b5563',
-    marginBottom: 24,
-  },
-  buttonContainer: {
-    marginTop: 24,
-    gap: 12,
-  },
-  saveButton: {
-    backgroundColor: '#059669',
-  },
-  newButton: {
-    backgroundColor: '#0284c7',
-  },
-  generateButton: {
-    backgroundColor: '#0a84ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
   },
   loadingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#4b5563',
+    fontSize: 17,
+    color: '#FFF',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });
