@@ -73,6 +73,21 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color, size }) => (
+            <View style={{ 
+              backgroundColor: color === '#0a84ff' ? '#0a84ff20' : 'transparent',
+              padding: 8,
+              borderRadius: 16,
+            }}>
+              <TabBarIcon name="gear" color={color} size={size} />
+            </View>
+          ),
+        }}
+      />
     </Tabs>
   );
 }

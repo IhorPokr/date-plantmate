@@ -4,7 +4,9 @@ import { FlashList } from '@shopify/flash-list';
 import { supabase } from '../../constants/supabaseClient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
 import { router } from 'expo-router';
+import { colors } from '../utils/colors';
 
 type SavedIdea = {
   id: string;
@@ -12,26 +14,60 @@ type SavedIdea = {
   created_at: string;
 };
 
-const SavedIdeaCard = React.memo(({ idea }: { idea: SavedIdea }) => {
+const SavedIdeaCard = React.memo(({ 
+  idea, 
+  theme, 
+  onDelete 
+}: { 
+  idea: SavedIdea; 
+  theme: typeof colors.dark;
+  onDelete: (id: string) => void;
+}) => {
   const title = idea.idea.match(/Title:(.*?)(?=\n|$)/)?.[1].trim() || '';
   const description = idea.idea.match(/Description:(.*?)(?=\n|$)/)?.[1].trim() || '';
   const cost = idea.idea.match(/Estimated cost:(.*?)(?=\n|$)/)?.[1].trim() || '';
   const duration = idea.idea.match(/Duration:(.*?)(?=\n|$)/)?.[1].trim() || '';
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Date Idea',
+      'Are you sure you want to delete this date idea?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDelete(idea.id)
+        }
+      ]
+    );
+  };
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+    <View style={[styles.card, { backgroundColor: theme.card }]}>
+      <View style={styles.cardHeader}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>{title}</Text>
+        <TouchableOpacity 
+          onPress={handleDelete}
+          style={styles.deleteButton}
+        >
+          <Text style={[styles.deleteButtonText, { color: theme.error }]}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={[styles.description, { color: theme.text }]}>{description}</Text>
       
-      <View style={styles.detailsContainer}>
+      <View style={[styles.detailsContainer, { backgroundColor: theme.border }]}>
         <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>ESTIMATED COST</Text>
-          <Text style={styles.detailValue}>{cost}</Text>
+          <Text style={[styles.detailLabel, { color: theme.secondaryText }]}>ESTIMATED COST</Text>
+          <Text style={[styles.detailValue, { color: theme.text }]}>{cost}</Text>
         </View>
-        <View style={styles.detailDivider} />
+        <View style={[styles.detailDivider, { backgroundColor: theme.border }]} />
         <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>DURATION</Text>
-          <Text style={styles.detailValue}>{duration}</Text>
+          <Text style={[styles.detailLabel, { color: theme.secondaryText }]}>DURATION</Text>
+          <Text style={[styles.detailValue, { color: theme.text }]}>{duration}</Text>
         </View>
       </View>
     </View>
@@ -39,6 +75,8 @@ const SavedIdeaCard = React.memo(({ idea }: { idea: SavedIdea }) => {
 });
 
 export default function SavedIdeas() {
+  const { isDarkMode } = useTheme();
+  const theme = colors[isDarkMode ? 'dark' : 'light'];
   const [savedIdeas, setSavedIdeas] = useState<SavedIdea[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -71,14 +109,23 @@ export default function SavedIdeas() {
     }
   }
 
-  const handleLogout = async () => {
+  const handleDelete = async (ideaId: string) => {
     try {
-      const { error } = await supabase.auth.signOut();
+      setLoading(true);
+      const { error } = await supabase
+        .from('ai_generated_ideas')
+        .delete()
+        .eq('id', ideaId);
+
       if (error) throw error;
-      router.replace('/(auth)/login');
+
+      // Update the local state to remove the deleted idea
+      setSavedIdeas(prev => prev.filter(idea => idea.id !== ideaId));
     } catch (error) {
-      console.error('Error signing out:', error);
-      Alert.alert('Error', 'Failed to sign out');
+      console.error('Error deleting idea:', error);
+      Alert.alert('Error', 'Failed to delete the date idea');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,19 +141,19 @@ export default function SavedIdeas() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Saved Dates</Text>
-        <TouchableOpacity 
-          onPress={handleLogout}
-          style={styles.logoutButton}
-        >
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Saved Dates</Text>
       </View>
       <FlashList
         data={savedIdeas}
-        renderItem={({ item }) => <SavedIdeaCard idea={item} />}
+        renderItem={({ item }) => (
+          <SavedIdeaCard 
+            idea={item} 
+            theme={theme}
+            onDelete={handleDelete}
+          />
+        )}
         estimatedItemSize={200}
         contentContainerStyle={styles.listContainer}
       />
@@ -141,12 +188,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     overflow: 'hidden',
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 0,
+  },
   cardTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: '#FFF',
-    padding: 20,
-    paddingBottom: 0,
   },
   description: {
     fontSize: 17,
@@ -158,7 +210,6 @@ const styles = StyleSheet.create({
   detailsContainer: {
     flexDirection: 'row',
     padding: 20,
-    backgroundColor: '#2C2C2E',
   },
   detailItem: {
     flex: 1,
@@ -180,6 +231,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: '600',
   },
+  deleteButton: {
+    padding: 8,
+  },
+  deleteButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -189,13 +247,5 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 17,
     marginTop: 12,
-  },
-  logoutButton: {
-    padding: 8,
-  },
-  logoutText: {
-    color: '#FF453A',
-    fontSize: 17,
-    fontWeight: '600',
   },
 }); 

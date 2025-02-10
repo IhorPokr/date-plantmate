@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Link, router } from 'expo-router';
 import { supabase } from '../../constants/supabaseClient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -17,10 +18,8 @@ export default function LoginScreen() {
       });
 
       if (error) throw error;
-      
       router.replace('/(tabs)');
     } catch (error) {
-      console.error('Error signing in:', error);
       alert('Error signing in!');
     } finally {
       setLoading(false);
@@ -28,63 +27,90 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-      />
-      <TouchableOpacity 
-        onPress={signIn}
-        disabled={loading}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? 'Loading...' : 'Sign In'}
-        </Text>
-      </TouchableOpacity>
-      <Link href="/(auth)/signup" style={styles.link}>
-        Don't have an account? Sign Up
-      </Link>
-    </View>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Welcome Back</Text>
+        <View style={styles.inputContainer}>
+          <TextInput
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            style={styles.input}
+            placeholderTextColor="#8E8E93"
+          />
+          <TextInput
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            style={styles.input}
+            placeholderTextColor="#8E8E93"
+          />
+        </View>
+        <TouchableOpacity 
+          onPress={signIn}
+          disabled={loading}
+          style={[styles.button, loading && styles.buttonDisabled]}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </Text>
+        </TouchableOpacity>
+        <Link href="/(auth)/signup" style={styles.link}>
+          Don't have an account? Sign Up
+        </Link>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
   container: {
     flex: 1,
-    justifyContent: 'center',
     padding: 20,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 32,
+    letterSpacing: 0.35,
+  },
+  inputContainer: {
+    gap: 16,
+    marginBottom: 32,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 5,
+    backgroundColor: '#1C1C1E',
+    padding: 16,
+    borderRadius: 12,
+    color: '#FFF',
+    fontSize: 17,
   },
   button: {
-    backgroundColor: '#0284c7',
-    padding: 15,
-    borderRadius: 5,
+    backgroundColor: '#0A84FF',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '600',
   },
   link: {
-    marginTop: 15,
-    color: '#0284c7',
+    color: '#0A84FF',
+    fontSize: 17,
     textAlign: 'center',
   },
 }); 

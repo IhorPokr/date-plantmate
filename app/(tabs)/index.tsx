@@ -17,16 +17,17 @@ import { supabase, getCompleteSession } from '../../constants/supabaseClient';
 import Slider from '@react-native-community/slider';
 import { generateDateIdea } from '../utils/gemini';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { theme } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '../utils/colors';
 
 type Mood = 'Romantic' | 'Adventurous' | 'Relaxing' | 'Fun';
 type Location = 'Indoor' | 'Outdoor' | 'No Preference';
 type FoodPreference = 'Yes' | 'No' | 'Surprise Me';
 
 export default function Index() {
-  const colorScheme = useColorScheme();
-  const colors = theme[colorScheme ?? 'light'];
+  const { isDarkMode } = useTheme();
+  const theme = colors[isDarkMode ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   
   const [loading, setLoading] = useState(true);
@@ -144,21 +145,21 @@ export default function Index() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color="#0284c7" />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
       </SafeAreaView>
     );
   }
 
   if (showQuiz) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <ScrollView 
-          style={styles.scrollView}
+          style={[styles.scrollView, { backgroundColor: theme.background }]}
           contentContainerStyle={[styles.scrollContentContainer, { justifyContent: 'center', flex: 1 }]}
         >
-          <View style={styles.quizCard}>
-            <Text style={styles.questionText}>
+          <View style={[styles.quizCard, { backgroundColor: theme.background }]}>
+            <Text style={[styles.questionText, { color: theme.text }]}>
               {currentQuestion === 0 && "What's your mood today?"}
               {currentQuestion === 1 && "What's your budget?"}
               {currentQuestion === 2 && "Indoor or outdoor activity?"}
@@ -166,29 +167,27 @@ export default function Index() {
             </Text>
 
             {currentQuestion === 1 ? (
-              // Budget slider view
-              <View style={styles.budgetContainer}>
-                <Text style={styles.budgetAmount}>${budget}</Text>
+              <View style={[styles.budgetContainer, { backgroundColor: theme.background }]}>
+                <Text style={[styles.budgetAmount, { color: theme.text }]}>${budget}</Text>
                 <Slider
-                  style={styles.slider}
+                  style={[styles.slider, { backgroundColor: theme.background }]}
                   minimumValue={0}
                   maximumValue={500}
                   step={10}
                   value={budget}
                   onValueChange={setBudget}
-                  minimumTrackTintColor="#0A84FF"
+                  minimumTrackTintColor={theme.primary}
                   maximumTrackTintColor="#3C3C3E"
                 />
                 <TouchableOpacity
-                  style={styles.primaryButton}
+                  style={[styles.primaryButton, styles.budgetNextButton]}
                   onPress={() => setCurrentQuestion(2)}
                 >
-                  <Text style={styles.buttonText}>Next</Text>
+                  <Text style={[styles.buttonText, { color: theme.text }]}>Next</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              // Options view for other questions
-              <View style={styles.optionsContainer}>
+              <View style={[styles.optionsContainer, { backgroundColor: theme.background }]}>
                 {(currentQuestion === 0 ? ['Romantic', 'Adventurous', 'Relaxing', 'Fun'] :
                   currentQuestion === 2 ? ['Indoor', 'Outdoor', 'No Preference'] :
                   ['Yes', 'No', 'Surprise Me']).map((option) => (
@@ -230,10 +229,10 @@ export default function Index() {
 
   if (generating) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0A84FF" />
-          <Text style={styles.loadingText}>Creating your perfect date...</Text>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={[styles.loadingText, { color: theme.text }]}>Creating your perfect date...</Text>
         </View>
       </SafeAreaView>
     );
@@ -241,37 +240,35 @@ export default function Index() {
 
   if (dateIdea) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <ScrollView 
-          style={styles.scrollView}
+          style={[styles.scrollView, { backgroundColor: theme.background }]}
           contentContainerStyle={styles.scrollContentContainer}
         >
-          <View style={styles.header}>
-            <Text style={styles.dateTitle}>
-              {getDateTitle(dateIdea)}
-            </Text>
-          </View>
-
-          <View style={styles.contentCard}>
-            <Text style={styles.description}>
+          <Text style={[styles.dateTitle, { color: theme.text }]}>
+            {getDateTitle(dateIdea)}
+          </Text>
+          
+          <View style={[styles.contentCard, { backgroundColor: theme.card }]}>
+            <Text style={[styles.description, { color: theme.text }]}>
               {getDateDescription(dateIdea)}
             </Text>
 
-            <View style={styles.detailsContainer}>
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>ESTIMATED COST</Text>
-                <Text style={styles.detailValue}>{getDateCost(dateIdea)}</Text>
+            <View style={[styles.detailsContainer, { backgroundColor: theme.card }]}>
+              <View style={[styles.detailItem, { backgroundColor: theme.card }]}>
+                <Text style={[styles.detailLabel, { color: theme.text }]}>ESTIMATED COST</Text>
+                <Text style={[styles.detailValue, { color: theme.text }]}>{getDateCost(dateIdea)}</Text>
               </View>
-              <View style={styles.detailDivider} />
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>DURATION</Text>
-                <Text style={styles.detailValue}>{getDateDuration(dateIdea)}</Text>
+              <View style={[styles.detailDivider, { backgroundColor: theme.card }]} />
+              <View style={[styles.detailItem, { backgroundColor: theme.card }]}>
+                <Text style={[styles.detailLabel, { color: theme.text }]}>DURATION</Text>
+                <Text style={[styles.detailValue, { color: theme.text }]}>{getDateDuration(dateIdea)}</Text>
               </View>
             </View>
 
-            <View style={styles.actionButtons}>
+            <View style={[styles.actionButtons, { backgroundColor: theme.card }]}>
               <TouchableOpacity 
-                style={styles.primaryButton}
+                style={[styles.primaryButton, { backgroundColor: theme.primary }]}
                 onPress={async () => {
                   try {
                     const { data: { session } } = await supabase.auth.getSession();
@@ -302,11 +299,11 @@ export default function Index() {
                   }
                 }}
               >
-                <Text style={styles.buttonText}>Save This Date</Text>
+                <Text style={[styles.buttonText, { color: theme.text }]}>Save This Date</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={styles.secondaryButton}
+                style={[styles.secondaryButton, { backgroundColor: theme.card }]}
                 onPress={() => {
                   setDateIdea(null);
                   setMood(null);
@@ -315,9 +312,10 @@ export default function Index() {
                   setBudget(100);
                   setCurrentQuestion(0);
                   setShowQuiz(false);
+                  setGenerating(false);
                 }}
               >
-                <Text style={styles.secondaryButtonText}>Back to Home</Text>
+                <Text style={[styles.secondaryButtonText, { color: theme.text }]}>Back to Home</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -327,15 +325,19 @@ export default function Index() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <TouchableOpacity 
-          style={styles.mainButton}
-          onPress={handleGetDateIdea}
-        >
-          <Text style={styles.mainButtonText}>Create Perfect Date</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      {!showQuiz && !dateIdea && !generating && (
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+          <TouchableOpacity 
+            style={[styles.mainButton, { backgroundColor: theme.primary }]}
+            onPress={handleGetDateIdea}
+          >
+            <Text style={[styles.mainButtonText, { color: theme.text }]}>
+              Create Perfect Date
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -363,7 +365,6 @@ function getDateDuration(idea: string): string {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#000',
   },
   container: {
     flex: 1,
@@ -397,9 +398,8 @@ const styles = StyleSheet.create({
   dateTitle: {
     fontSize: 34,
     fontWeight: '700',
-    color: '#FFF',
-    textAlign: 'left',
-    letterSpacing: 0.35,
+    marginBottom: 16,
+    paddingHorizontal: 20,
   },
   contentCard: {
     backgroundColor: '#1C1C1E',
@@ -544,5 +544,16 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  budgetNextButton: {
+    width: '100%',
+    marginTop: 20,
+    paddingVertical: 16,
+    backgroundColor: '#0A84FF',
+    shadowColor: '#0A84FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
   },
 });
