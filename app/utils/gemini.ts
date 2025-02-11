@@ -21,7 +21,11 @@ export async function generateDateIdea(
   mood: string,
   budget: number,
   location: string,
-  foodPreference: string
+  foodPreference: string,
+  timeOfDay: string,
+  activityLevel: string,
+  occasion: string,
+  season: string
 ) {
   try {
     if (!GEMINI_API_KEY) {
@@ -32,9 +36,18 @@ export async function generateDateIdea(
       Mood: ${mood}
       Budget: $${budget}
       Location: ${location}
+      Time of Day: ${timeOfDay}
+      Activity Level: ${activityLevel}
+      Occasion: ${occasion}
+      Season: ${season}
       Include Food: ${foodPreference}
 
-      Please create a wholesome, safe, and simple date activity.
+      Please create a wholesome, safe, and simple date activity that matches:
+      - The specified time of day (${timeOfDay})
+      - The activity level (${activityLevel})
+      - The special occasion if any (${occasion})
+      - The seasonal consideration (${season})
+      
       The date should be appropriate for all ages and follow these guidelines:
       - Keep it casual and fun
       - Focus on public places and common activities
@@ -44,10 +57,10 @@ export async function generateDateIdea(
       Format your response exactly like this:
 
       Title: [Family-friendly activity name]
-      Description: [Brief, wholesome description]
+      Description: [Brief, wholesome description considering time of day and activity level]
       Estimated cost: [Cost range within budget]
       Duration: [Time estimate]
-      What makes it special: [Simple positive aspect]`;
+      What makes it special: [Simple positive aspect, mentioning the occasion if applicable]`;
 
     console.log('Making Gemini request...');
     

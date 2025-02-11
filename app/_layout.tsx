@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { supabase } from '../constants/supabaseClient';
 import { View, Text } from 'react-native';
 import { ThemeProvider } from './context/ThemeContext';
+import { configureNotifications } from './utils/notificationConfig';
+import { requestRequiredPermissions } from './utils/permissionsManager';
 
 export default function RootLayout() {
   // Initialize Supabase auth state
@@ -12,6 +14,14 @@ export default function RootLayout() {
     } catch (error) {
       console.error('Error initializing auth:', error);
     }
+  }, []);
+
+  useEffect(() => {
+    configureNotifications();
+  }, []);
+
+  useEffect(() => {
+    requestRequiredPermissions();
   }, []);
 
   return (

@@ -10,13 +10,38 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCalendarsUsageDescription": "This app needs calendar access to schedule your dates.",
+        "NSRemindersUsageDescription": "This app needs reminders access to set date reminders.",
+        "NSCameraUsageDescription": "This app needs camera access to add photos to your date memories.",
+        "NSPhotoLibraryUsageDescription": "This app needs photo library access to save date photos.",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to find nearby date venues.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access to find nearby date venues.",
+        "NSLocationAlwaysUsageDescription": "This app needs location access to find nearby date venues.",
+        "NSUserNotificationUsageDescription": "Enable notifications to get reminders about your upcoming dates.",
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "CALENDAR",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -25,6 +50,16 @@
     },
     "plugins": [
       "expo-router",
+      "expo-calendar",
+      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification-sound.wav"]
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -34,7 +69,13 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "The app needs calendar access to add your date events."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

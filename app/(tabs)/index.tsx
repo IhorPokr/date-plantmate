@@ -24,6 +24,10 @@ import { colors } from '../utils/colors';
 type Mood = 'Romantic' | 'Adventurous' | 'Relaxing' | 'Fun';
 type Location = 'Indoor' | 'Outdoor' | 'No Preference';
 type FoodPreference = 'Yes' | 'No' | 'Surprise Me';
+type TimeOfDay = 'Morning' | 'Afternoon' | 'Evening' | 'Night';
+type ActivityLevel = 'Active' | 'Moderate' | 'Relaxed';
+type Occasion = 'Regular Date' | 'Birthday' | 'Anniversary' | 'First Date';
+type Season = 'Any' | 'Spring' | 'Summer' | 'Fall' | 'Winter';
 
 export default function Index() {
   const { isDarkMode } = useTheme();
@@ -39,6 +43,10 @@ export default function Index() {
   const [budget, setBudget] = useState(100);
   const [location, setLocation] = useState<Location | null>(null);
   const [foodPreference, setFoodPreference] = useState<FoodPreference | null>(null);
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay | null>(null);
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel | null>(null);
+  const [occasion, setOccasion] = useState<Occasion | null>(null);
+  const [season, setSeason] = useState<Season | null>(null);
 
   // Add new state for AI response
   const [dateIdea, setDateIdea] = useState<string | null>(null);
@@ -102,7 +110,11 @@ export default function Index() {
           mood!,
           budget,
           location!,
-          selectedFoodPreference
+          selectedFoodPreference,
+          timeOfDay ?? 'Any',
+          activityLevel ?? 'Moderate',
+          occasion ?? 'Regular Date',
+          season ?? 'Any'
         );
 
         const { data: { session } } = await supabase.auth.getSession();
@@ -116,7 +128,11 @@ export default function Index() {
                 mood,
                 budget,
                 location,
-                foodPreference: selectedFoodPreference
+                foodPreference: selectedFoodPreference,
+                timeOfDay,
+                activityLevel,
+                occasion,
+                season
               }
             }
           ])
@@ -156,14 +172,18 @@ export default function Index() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <ScrollView 
           style={[styles.scrollView, { backgroundColor: theme.background }]}
-          contentContainerStyle={[styles.scrollContentContainer, { justifyContent: 'center', flex: 1 }]}
+          contentContainerStyle={styles.scrollContentContainer}
         >
           <View style={[styles.quizCard, { backgroundColor: theme.background }]}>
             <Text style={[styles.questionText, { color: theme.text }]}>
               {currentQuestion === 0 && "What's your mood today?"}
               {currentQuestion === 1 && "What's your budget?"}
               {currentQuestion === 2 && "Indoor or outdoor activity?"}
-              {currentQuestion === 3 && "Include food in your date?"}
+              {currentQuestion === 3 && "What time of day?"}
+              {currentQuestion === 4 && "How active do you want to be?"}
+              {currentQuestion === 5 && "Is this for a special occasion?"}
+              {currentQuestion === 6 && "Any seasonal preference?"}
+              {currentQuestion === 7 && "Include food in your date?"}
             </Text>
 
             {currentQuestion === 1 ? (
@@ -187,33 +207,168 @@ export default function Index() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={[styles.optionsContainer, { backgroundColor: theme.background }]}>
-                {(currentQuestion === 0 ? ['Romantic', 'Adventurous', 'Relaxing', 'Fun'] :
-                  currentQuestion === 2 ? ['Indoor', 'Outdoor', 'No Preference'] :
-                  ['Yes', 'No', 'Surprise Me']).map((option) => (
+              <View style={styles.optionsContainer}>
+                {currentQuestion === 0 ? ['Romantic', 'Adventurous', 'Relaxing', 'Fun'].map((option) => (
                   <TouchableOpacity
                     key={option}
                     style={[
                       styles.optionButton,
-                      (mood === option || location === option || foodPreference === option) && 
-                      styles.selectedOption
+                      { 
+                        backgroundColor: theme.card,
+                        borderColor: theme.border 
+                      },
+                      mood === option && styles.selectedOption
                     ]}
                     onPress={() => {
-                      if (currentQuestion === 0) {
-                        setMood(option as Mood);
-                        setCurrentQuestion(1);
-                      } else if (currentQuestion === 2) {
-                        setLocation(option as Location);
-                        setCurrentQuestion(3);
-                      } else {
-                        handleQuizComplete(option as FoodPreference);
-                      }
+                      setMood(option as Mood);
+                      setCurrentQuestion(1);
                     }}
                   >
                     <Text style={[
                       styles.optionText,
-                      (mood === option || location === option || foodPreference === option) && 
-                      styles.selectedOptionText
+                      { color: theme.text },
+                      mood === option && styles.selectedOptionText
+                    ]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                )) : currentQuestion === 2 ? ['Indoor', 'Outdoor', 'No Preference'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      { 
+                        backgroundColor: theme.card,
+                        borderColor: theme.border 
+                      },
+                      location === option && styles.selectedOption
+                    ]}
+                    onPress={() => {
+                      setLocation(option as Location);
+                      setCurrentQuestion(3);
+                    }}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      { color: theme.text },
+                      location === option && styles.selectedOptionText
+                    ]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                )) : currentQuestion === 3 ? ['Morning', 'Afternoon', 'Evening', 'Night'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      { 
+                        backgroundColor: theme.card,
+                        borderColor: theme.border 
+                      },
+                      timeOfDay === option && styles.selectedOption
+                    ]}
+                    onPress={() => {
+                      setTimeOfDay(option as TimeOfDay);
+                      setCurrentQuestion(4);
+                    }}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      { color: theme.text },
+                      timeOfDay === option && styles.selectedOptionText
+                    ]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                )) : currentQuestion === 4 ? ['Active', 'Moderate', 'Relaxed'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      { 
+                        backgroundColor: theme.card,
+                        borderColor: theme.border 
+                      },
+                      activityLevel === option && styles.selectedOption
+                    ]}
+                    onPress={() => {
+                      setActivityLevel(option as ActivityLevel);
+                      setCurrentQuestion(5);
+                    }}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      { color: theme.text },
+                      activityLevel === option && styles.selectedOptionText
+                    ]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                )) : currentQuestion === 5 ? ['Regular Date', 'Birthday', 'Anniversary', 'First Date'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      { 
+                        backgroundColor: theme.card,
+                        borderColor: theme.border 
+                      },
+                      occasion === option && styles.selectedOption
+                    ]}
+                    onPress={() => {
+                      setOccasion(option as Occasion);
+                      setCurrentQuestion(6);
+                    }}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      { color: theme.text },
+                      occasion === option && styles.selectedOptionText
+                    ]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                )) : currentQuestion === 6 ? ['Any', 'Spring', 'Summer', 'Fall', 'Winter'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      { 
+                        backgroundColor: theme.card,
+                        borderColor: theme.border 
+                      },
+                      season === option && styles.selectedOption
+                    ]}
+                    onPress={() => {
+                      setSeason(option as Season);
+                      setCurrentQuestion(7);
+                    }}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      { color: theme.text },
+                      season === option && styles.selectedOptionText
+                    ]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                )) : ['Yes', 'No', 'Surprise Me'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      { 
+                        backgroundColor: theme.card,
+                        borderColor: theme.border 
+                      },
+                      foodPreference === option && styles.selectedOption
+                    ]}
+                    onPress={() => handleQuizComplete(option as FoodPreference)}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      { color: theme.text },
+                      foodPreference === option && styles.selectedOptionText
                     ]}>
                       {option}
                     </Text>
@@ -283,7 +438,11 @@ export default function Index() {
                           mood,
                           budget,
                           location,
-                          foodPreference
+                          foodPreference,
+                          timeOfDay,
+                          activityLevel,
+                          occasion,
+                          season
                         }
                       });
 
@@ -336,7 +495,7 @@ export default function Index() {
               Create Perfect Date
             </Text>
           </TouchableOpacity>
-        </View>
+    </View>
       )}
     </SafeAreaView>
   );
@@ -477,20 +636,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   quizCard: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 16,
     padding: 24,
     margin: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: 16,
   },
   questionText: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '700',
-    color: '#FFF',
     textAlign: 'center',
     marginBottom: 32,
     letterSpacing: 0.35,
@@ -499,20 +651,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   optionButton: {
-    backgroundColor: '#2C2C2E',
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#3C3C3E',
   },
   selectedOption: {
     backgroundColor: '#0A84FF',
     borderColor: '#0A84FF',
   },
   optionText: {
-    color: '#FFF',
     fontSize: 17,
     fontWeight: '600',
   },
